@@ -30,5 +30,15 @@ describe("rules import/export", () => {
   it("rejects invalid alias", () => {
     const { errors } = rulesImportPreview([{ name: "ab" }]);
     expect(errors.length).toBeGreaterThan(0);
+    const err = errors[0];
+    expect(err.key).toBe("import.ruleLine");
+    if (err.key === "import.ruleLine") {
+      expect(err.params.reason).toBe("validation.aliasTooShort");
+    }
+  });
+
+  it("returns key for invalid json", () => {
+    const result = parseRulesImportJson("{");
+    expect(result).toEqual({ key: "import.jsonInvalid" });
   });
 });

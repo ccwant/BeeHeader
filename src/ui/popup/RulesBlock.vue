@@ -8,8 +8,8 @@
       <button
         type="button"
         class="bh-rules-gear"
-        aria-label="管理 URL 规则"
-        title="管理 URL 规则"
+        :aria-label="t('rulesBlock.manageRules')"
+        :title="t('rulesBlock.manageRules')"
         @click="openRulesDialog"
       >
         <svg
@@ -34,9 +34,9 @@
       v-if="variant === 'auto'"
       class="bh-tabs bh-tabs--auto"
       role="tablist"
-      aria-label="自动匹配规则"
+      :aria-label="t('rulesBlock.autoTablist')"
     >
-      <span v-if="ruleList.length === 0" class="bh-rules-empty">暂无</span>
+      <span v-if="ruleList.length === 0" class="bh-rules-empty">{{ t("rulesBlock.empty") }}</span>
       <button
         v-for="c in ruleList"
         :key="c.id"
@@ -49,7 +49,7 @@
         }"
         role="tab"
         :aria-selected="isEditingConfig(c)"
-        :title="`编辑：${getTabLabel(c)}`"
+        :title="t('rulesBlock.editTitle', { name: getTabLabel(c) })"
         @click="c.id && selectForEdit(c.id)"
       >
         <input
@@ -57,7 +57,7 @@
           class="bh-tab-check"
           :checked="isAutoTabMatched(c)"
           disabled
-          aria-label="自动匹配状态"
+          :aria-label="t('rulesBlock.autoMatchAria')"
           @click.stop
         />
         <span class="bh-tab-label">{{ getTabLabel(c) }}</span>
@@ -68,9 +68,9 @@
       v-else
       class="bh-tabs bh-tabs--manual"
       role="tablist"
-      aria-label="手动切换规则"
+      :aria-label="t('rulesBlock.manualTablist')"
     >
-      <span v-if="ruleList.length === 0" class="bh-rules-empty">暂无</span>
+      <span v-if="ruleList.length === 0" class="bh-rules-empty">{{ t("rulesBlock.empty") }}</span>
       <div
         v-for="c in ruleList"
         :key="c.id"
@@ -87,14 +87,14 @@
           type="checkbox"
           class="bh-tab-check"
           :checked="isManualEffective(c)"
-          aria-label="启用手动规则"
+          :aria-label="t('rulesBlock.manualEnableAria')"
           @click.stop
           @change="c.id && setManualEffective(c.id, ($event.target as HTMLInputElement).checked)"
         />
         <button
           type="button"
           class="bh-tab-body"
-          :title="`编辑：${getTabLabel(c)}`"
+          :title="t('rulesBlock.editTitle', { name: getTabLabel(c) })"
           @click="c.id && selectForEdit(c.id)"
         >
           <span class="bh-tab-label">{{ getTabLabel(c) }}</span>
@@ -109,6 +109,7 @@
  * 自动或手动规则 tab；variant 决定列表来源与交互。
  */
 import { computed, inject } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   getRuleAlias,
   getTabLabel,
@@ -123,6 +124,7 @@ const props = defineProps<{
   variant: "auto" | "manual";
 }>();
 
+const { t } = useI18n();
 const core = inject(POPUP_CORE_KEY)!;
 
 /**
@@ -136,8 +138,8 @@ function openRulesDialog() {
 /** 区块标题与说明文案，随 variant 切换 */
 const heading = computed(() =>
   props.variant === "auto"
-    ? { title: "自动规则", hint: "根据URL正则自动匹配" }
-    : { title: "手动规则", hint: "勾选后生效；点击名称编辑该规则的请求头" },
+    ? { title: t("rulesBlock.autoTitle"), hint: t("rulesBlock.autoHint") }
+    : { title: t("rulesBlock.manualTitle"), hint: t("rulesBlock.manualHint") },
 );
 
 /** scope 为自动模式的规则子集 */
@@ -218,7 +220,6 @@ async function setManualEffective(id: string, checked: boolean) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 6px;
 }
@@ -254,6 +255,7 @@ async function setManualEffective(id: string, checked: boolean) {
   font-size: 11px;
   font-weight: 600;
   color: var(--bh-fg);
+  text-transform: uppercase;
 }
 .bh-rules-hint {
   margin: 0 0 0 10px;

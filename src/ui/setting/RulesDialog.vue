@@ -2,16 +2,29 @@
   <div v-if="open" class="bh-manage-overlay">
     <div class="bh-manage-dialog" role="dialog" aria-labelledby="bh-manage-title">
       <div class="bh-manage-titlebar">
-        <span id="bh-manage-title">管理 URL 规则</span>
-        <button type="button" class="bh-manage-close" aria-label="关闭" @click="open = false">×</button>
+        <span id="bh-manage-title">{{ t("rulesDialog.title") }}</span>
+        <button
+          type="button"
+          class="bh-manage-close"
+          :aria-label="t('rulesDialog.close')"
+          @click="open = false"
+        >
+          ×
+        </button>
       </div>
 
       <div class="bh-manage-layout">
         <aside class="bh-manage-left">
           <div class="bh-manage-toolbar bh-manage-toolbar--left">
-            <button type="button" class="bh-btn bh-btn-primary" @click="addRule">新增</button>
-            <button type="button" class="bh-btn" @click="exportRules">导出</button>
-            <button type="button" class="bh-btn" @click="openImportPicker">导入</button>
+            <button type="button" class="bh-btn bh-btn-primary" @click="addRule">
+              {{ t("rulesDialog.add") }}
+            </button>
+            <button type="button" class="bh-btn" @click="exportRules">
+              {{ t("rulesDialog.export") }}
+            </button>
+            <button type="button" class="bh-btn" @click="openImportPicker">
+              {{ t("rulesDialog.import") }}
+            </button>
             <input
               ref="fileInput"
               type="file"
@@ -43,7 +56,7 @@
               :disabled="!canDelete"
               @click="deleteRuleWithConfirm"
             >
-              删除
+              {{ t("rulesDialog.delete") }}
             </button>
             <button
               type="button"
@@ -52,28 +65,31 @@
               :disabled="!isSaveDirty"
               @click="saveRule"
             >
-              保存
+              {{ t("rulesDialog.save") }}
             </button>
           </div>
           <form class="bh-manage-form" novalidate @submit.prevent="saveRule">
             <p v-if="formError" class="bh-manage-form-error" role="alert">{{ formError }}</p>
             <label class="bh-field">
-              <span class="bh-field-label">别名 <span class="bh-required">*</span></span>
+              <span class="bh-field-label">
+                {{ t("rulesDialog.aliasLabel") }}
+                <span class="bh-required">{{ t("rulesDialog.required") }}</span>
+              </span>
               <input
                 v-model="alias"
                 type="text"
                 class="bh-input"
-                placeholder="至少 3 个字符"
+                :placeholder="t('rulesDialog.aliasPlaceholder')"
                 autocomplete="off"
               />
             </label>
             <label class="bh-field">
-              <span class="bh-field-label">URL 规则（可选）</span>
+              <span class="bh-field-label">{{ t("rulesDialog.urlLabel") }}</span>
               <input
                 v-model="pattern"
                 type="text"
                 class="bh-input bh-input-mono"
-                placeholder="网址匹配正则"
+                :placeholder="t('rulesDialog.urlPlaceholder')"
                 autocomplete="off"
               />
             </label>
@@ -104,15 +120,26 @@ import {
 } from "@/shared/utils/rules";
 import { ValidationUtils } from "@/shared/utils/validation";
 import type { HeaderConfigData } from "@/types";
+import { formatRulesImportError } from "@/i18n/formatImportError";
 import { useFeedback } from "../feedback/useFeedback";
 import { POPUP_CORE_KEY } from "../popup/popupCore";
 import { sendRuntimeMessage } from "../popup/runtime";
+import { useI18n } from "vue-i18n";
+import type { RulesImportError } from "@/shared/utils/rules";
 
 const open = defineModel<boolean>("open", { required: true });
 
 const core = inject(POPUP_CORE_KEY)!;
 
+const { t, te, locale } = useI18n();
 const { showToast, showConfirm } = useFeedback();
+
+/**
+ * 将校验 key 或 background 原文转为当前语言文案。
+ */
+function tr(text: string) {
+  return te(text) ? t(text) : text;
+}
 
 const selectedId = ref<string | null>(null);
 const alias = ref("");
@@ -189,7 +216,9 @@ function onImportFileChange(e: Event) {
  */
 async function addRule() {
   formError.value = "";
-  const name = nextDefaultRuleName(core.configs.value);
+  const name = nextDefaultRuleName(core.configs.value, (n) =>
+    t("rulesDialog.defaultRuleName", { n }),
+  );
   const res = await sendRuntimeMessage<HeaderConfigData>("addConfig", {
     name,
     enabled: core.globallyEnabled.value,
@@ -197,7 +226,7 @@ async function addRule() {
     scope: { type: "all", value: "" },
   });
   if (!res.success || !res.data) {
-    formError.value = res.error || "新增失败";
+    formError.value = tr(res.error || "rulesDialog.addFail");
     return;
   }
   core.configs.value.push(res.data as HeaderConfigData);
@@ -214,7 +243,7 @@ async function addRule() {
 async function saveRule() {
   const aliasErr = ValidationUtils.validateRuleAlias(alias.value);
   if (aliasErr) {
-    formError.value = aliasErr;
+    formError.value = t(aliasErr);
     return;
   }
   formError.value = "";
@@ -245,9 +274,9 @@ async function saveRule() {
     }
     core.syncActiveEditingId();
     loadForm();
-    showToast("保存成功");
+    showToast(t("rulesDialog.toastSaveOk"));
   } else {
-    showToast(res.error || "保存失败", 2800);
+    showToast(tr(res.error || "rulesDialog.toastSaveFail"), 2800);
   }
 }
 
@@ -270,7 +299,7 @@ function exportRules() {
     a.remove();
     URL.revokeObjectURL(url);
   } catch {
-    formError.value = "导出失败，请重试";
+    formError.value = t("rulesDialog.exportFail");
   }
 }
 
@@ -283,23 +312,28 @@ async function importRules(file: File) {
   try {
     text = await file.text();
   } catch {
-    formError.value = "无法读取文件";
+    formError.value = t("rulesDialog.readFileFail");
     return;
   }
 
   const parsed = parseRulesImportJson(text);
-  if (typeof parsed === "string") {
-    formError.value = parsed;
+  if (!Array.isArray(parsed)) {
+    formError.value = formatRulesImportError(parsed as RulesImportError, t);
     return;
   }
 
   const { items, errors } = rulesImportPreview(parsed);
   if (errors.length > 0) {
-    formError.value = errors.slice(0, 3).join("；") + (errors.length > 3 ? "…" : "");
+    const sep = locale.value === "zh-CN" ? "；" : "; ";
+    const parts = errors
+      .slice(0, 3)
+      .map((e) => formatRulesImportError(e, t));
+    formError.value =
+      parts.join(sep) + (errors.length > 3 ? t("rulesDialog.importErrorsMore") : "");
     return;
   }
   if (items.length === 0) {
-    formError.value = "没有可导入的规则";
+    formError.value = t("rulesDialog.importNone");
     return;
   }
 
@@ -307,7 +341,7 @@ async function importRules(file: File) {
     configs: items,
   });
   if (!res.success) {
-    formError.value = res.error || "导入失败";
+    formError.value = tr(res.error || "rulesDialog.importFail");
     return;
   }
   if (Array.isArray(res.data)) {
@@ -327,8 +361,9 @@ async function deleteRule() {
 
   const res = await sendRuntimeMessage<HeaderConfigData[]>("deleteConfig", { id });
   if (!res.success) {
-    formError.value = res.error || "删除失败";
-    showToast(res.error || "删除失败", 2800);
+    const msg = tr(res.error || "rulesDialog.deleteFail");
+    formError.value = msg;
+    showToast(msg, 2800);
     return;
   }
   if (res.data?.length) {
@@ -360,11 +395,12 @@ async function deleteRuleWithConfirm() {
   if (!id || core.configs.value.length <= 0) return;
 
   const config = core.configs.value.find((c) => c.id === id);
-  const label = config ? getTabLabel(config) : "该规则";
+  const label = config ? getTabLabel(config) : t("rulesDialog.thisRule");
   const ok = await showConfirm({
-    title: "删除规则",
-    message: `确定删除「${label}」？删除后无法恢复。`,
-    confirmText: "删除",
+    title: t("rulesDialog.deleteTitle"),
+    message: t("rulesDialog.deleteMessage", { name: label }),
+    confirmText: t("rulesDialog.deleteConfirm"),
+    cancelText: t("feedback.cancel"),
     danger: true,
   });
   if (!ok) return;

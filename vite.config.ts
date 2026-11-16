@@ -6,7 +6,12 @@ import manifest from "./manifest.config";
 import { define } from "./define.config";
 
 export default defineConfig({
-  define,
+  define: {
+    ...define,
+    /** 扩展 popup CSP 禁止 unsafe-eval，禁用 vue-i18n 消息编译器 */
+    __INTLIFY_JIT_COMPILATION__: false,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: true,
+  },
   plugins: [
     vue(),
     crx({
@@ -20,6 +25,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
+      "vue-i18n": resolve(
+        __dirname,
+        "node_modules/vue-i18n/dist/vue-i18n.runtime.esm-bundler.js",
+      ),
     },
   },
   build: {

@@ -1,5 +1,5 @@
 import type { ConfigScope, HeaderConfigData, HeaderItem } from "@/types";
-import { ValidationUtils } from "./validation";
+import { ValidationUtils, type ValidationMessageKey } from "./validation";
 
 // —— 手动 / 自动 ——
 /** 未配置 URL 规则（* / 空）→ 手动规则 */
@@ -61,12 +61,24 @@ export function getTabLabel(config: HeaderConfigData): string {
   return getRuleAlias(config) || getPatternLabel(config);
 }
 
-/** 设置面板「新增」默认规则名 */
-export function nextDefaultRuleName(configs: HeaderConfigData[]): string {
+export type RulesImportError =
+  | {
+      key: "import.ruleLine";
+      params: { index: number; reason: ValidationMessageKey };
+    }
+  | { key: "import.jsonInvalid" | "import.noRulesArray" | "import.fileEmpty" };
+
+/**
+ * 生成不重复的默认规则名；`format` 由 UI i18n 提供（如「新规则{n}」）。
+ */
+export function nextDefaultRuleName(
+  configs: HeaderConfigData[],
+  format: (n: number) => string,
+): string {
   const used = new Set(configs.map((c) => (c.name || "").trim()));
   let n = configs.length + 1;
-  while (used.has(`新规则${n}`)) n += 1;
-  return `新规则${n}`;
+  while (used.has(format(n))) n += 1;
+  return format(n);
 }
 
 // —— URL 与作用域匹配 ——
@@ -189,14 +201,18 @@ function resolveImportScope(rule: RulesExportRule): ConfigScope {
   return patternToScope(rule.pattern ?? "");
 }
 
-function validateRule(rule: RulesExportRule, index: number): string | null {
+function validateRule(rule: RulesExportRule, index: number): RulesImportError | null {
   const name = String(rule.name ?? "").trim();
   const aliasErr = ValidationUtils.validateRuleAlias(name);
-  if (aliasErr) return `规则 #${index + 1}: ${aliasErr}`;
+  if (aliasErr) {
+    return { key: "import.ruleLine", params: { index: index + 1, reason: aliasErr } };
+  }
   if (Array.isArray(rule.headers)) {
     for (let i = 0; i < rule.headers.length; i++) {
       const itemErr = ValidationUtils.validateHeaderItem(rule.headers[i]);
-      if (itemErr) return `规则 #${index + 1}: ${itemErr}`;
+      if (itemErr) {
+        return { key: "import.ruleLine", params: { index: index + 1, reason: itemErr } };
+      }
     }
   }
   return null;
@@ -217,34 +233,37 @@ function exportRuleToConfigData(rule: RulesExportRule): HeaderConfigData {
   };
 }
 
-export function parseRulesImportJson(text: string): RulesExportRule[] | string {
-  let json: any;
+export function parseRulesImportJson(
+  text: string,
+): RulesExportRule[] | RulesImportError {
+  let json: unknown;
   try {
     json = JSON.parse(text);
   } catch {
-    return "无法解析 JSON，请确认文件格式正确";
+    return { key: "import.jsonInvalid" };
   }
 
   if (Array.isArray(json)) {
     return json.map((row) => row as unknown as RulesExportRule);
   }
 
-  const rules = json.rules ?? json.configs;
+  const doc = json as { rules?: unknown; configs?: unknown };
+  const rules = doc.rules ?? doc.configs;
   if (Array.isArray(rules)) {
     return rules.map((row) => row as unknown as RulesExportRule);
   }
 
-  return "未找到 rules 数组";
+  return { key: "import.noRulesArray" };
 }
 
 export function rulesImportPreview(rules: RulesExportRule[]): {
   items: HeaderConfigData[];
-  errors: string[];
+  errors: RulesImportError[];
 } {
   const items: HeaderConfigData[] = [];
-  const errors: string[] = [];
+  const errors: RulesImportError[] = [];
   if (rules.length === 0) {
-    errors.push("文件中没有可导入的规则");
+    errors.push({ key: "import.fileEmpty" });
     return { items, errors };
   }
 

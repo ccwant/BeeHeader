@@ -1,31 +1,40 @@
 # BeeHeader
 
-基于（Vite + Vue 3 + TypeScript + `@crxjs/vite-plugin`），多 URL 规则、Declarative Net Request 注入请求头、全局暂停/恢复。
+**English** · [中文](README.zh-CN.md)
 
-## 开发
+Lightweight Chrome extension (Vite + Vue 3 + TypeScript + `@crxjs/vite-plugin`) for multi-URL rules, Declarative Net Request header injection, and global pause/resume.
+
+## Development
 
 ```bash
 npm install
-npm run dev    # 监听构建
-npm run build  # 生产构建
-npm test       # 单元测试（ConfigService / DNR 规则）
+npm run dev    # watch build
+npm run build  # production build
+npm test       # unit tests (ConfigService / DNR rules)
 ```
 
-## 加载扩展
+## Load the extension
 
-1. 执行 `npm run build`
-2. 打开 `chrome://extensions/`，开启开发者模式
-3. 加载已解压的扩展程序，选择本项目 `dist` 目录
+1. Run `npm run build`
+2. Open `chrome://extensions/` and enable Developer mode
+3. Load unpacked and select this project’s `dist` folder
 
-## 目录结构
+## Project layout
 
 ```
 src/
-├── background/          # Service Worker：DNR 同步、消息、徽章
-├── content/             # beeheader.com 分享页 postMessage 桥
-├── shared/              # Config 模型、存储、校验、ConfigService
-└── ui/popup/            # Vue 3 弹窗 UI
+├── background/          # Service worker: DNR sync, messaging, badge
+├── content/             # beeheader.com share page postMessage bridge
+├── shared/              # Config model, storage, validation, ConfigService
+├── ui/popup/            # Vue 3 popup UI
+└── i18n/                # vue-i18n strings (zh-CN / en)
 ```
+
+## Internationalization
+
+- Popup uses [vue-i18n](https://vue-i18n.intlify.dev/); default locale follows the browser (`zh-CN` for Chinese, otherwise `en`).
+- Switch manually under **Setting → Global → Language**; choice is stored in `chrome.storage.local` (`beeheader_locale`).
+- Copy lives in `src/i18n/locales/`; validation and import errors use `validation.*` / `import.*` keys translated in the UI.
 
 ## License
 

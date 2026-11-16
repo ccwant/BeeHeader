@@ -24,7 +24,7 @@
             <rect x="6" y="5" width="4" height="14" rx="1" />
             <rect x="14" y="5" width="4" height="14" rx="1" />
           </svg>
-          <span>Pause</span>
+          <span>{{ t("headerBar.pause") }}</span>
         </template>
         <template v-else>
           <svg
@@ -38,7 +38,7 @@
           >
             <path d="M8 5v14l11-7z" />
           </svg>
-          <span>Resume</span>
+          <span>{{ t("headerBar.resume") }}</span>
         </template>
       </button>
       <button type="button" class="bh-btn bh-link" @click="openSettingDialog">
@@ -55,7 +55,7 @@
             points="12 3 19.794 7.5 19.794 16.5 12 21 4.206 16.5 4.206 7.5"
           />
         </svg>
-        <span>Setting</span>
+        <span>{{ t("headerBar.setting") }}</span>
       </button>
     </div>
   </div>
@@ -64,10 +64,12 @@
 <script setup lang="ts">
 /** 顶栏：品牌、全局 Pause/Resume、打开设置 */
 import { computed, inject } from "vue";
+import { useI18n } from "vue-i18n";
 import type { HeaderConfigData } from "@/types";
 import { sendRuntimeMessage } from "./runtime";
 import { POPUP_CORE_KEY } from "./popupCore";
 
+const { t } = useI18n();
 const iconUrl = chrome.runtime.getURL("icons/icon32.png");
 const core = inject(POPUP_CORE_KEY)!;
 

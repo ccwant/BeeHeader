@@ -5,14 +5,14 @@
         v-model="h.enabled"
         type="checkbox"
         class="bh-h-enabled"
-        aria-label="Toggle header"
+        :aria-label="t('headerRows.toggleHeader')"
         :disabled="fieldsDisabled"
         @change="onHeaderFieldChange"
       />
       <input
         v-model="h.name"
         class="bh-input bh-h-name"
-        placeholder="Name"
+        :placeholder="t('headerRows.namePlaceholder')"
         :disabled="fieldsDisabled"
         @input="onHeaderFieldChange"
         @keydown="focusNextValue"
@@ -20,7 +20,7 @@
       <input
         v-model="h.value"
         class="bh-input bh-h-value"
-        placeholder="Value"
+        :placeholder="t('headerRows.valuePlaceholder')"
         :disabled="fieldsDisabled"
         @input="onHeaderFieldChange"
         @keydown="addRowOnEnter"
@@ -28,8 +28,8 @@
       <button
         type="button"
         class="bh-del bh-del-header"
-        aria-label="Delete header"
-        title="Delete"
+        :aria-label="t('headerRows.deleteHeader')"
+        :title="t('headerRows.deleteHeader')"
         :disabled="fieldsDisabled"
         @click="removeHeaderRow(i)"
       >
@@ -47,7 +47,7 @@
 
   <div class="bh-actions">
     <button type="button" class="bh-link" :disabled="fieldsDisabled" @click="addHeaderRow">
-      + Add header
+      {{ t("headerRows.addHeader") }}
     </button>
   </div>
 </template>
@@ -55,11 +55,13 @@
 <script setup lang="ts">
 /** 当前选中规则的请求头表格与防抖持久化 */
 import { computed, inject, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { isManualRuleScope } from "@/shared/utils/rules";
 import type { HeaderConfigData, HeaderItem } from "@/types";
 import { sendRuntimeMessage } from "./runtime";
 import { POPUP_CORE_KEY } from "./popupCore";
 
+const { t } = useI18n();
 const core = inject(POPUP_CORE_KEY)!;
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
