@@ -3,6 +3,7 @@ import { ValidationUtils } from "@/shared/utils/validation";
 import type {
   ImportConfigsPayload,
   ImportSharedKVPayload,
+  PopupConfigsSnapshot,
   RuntimeMessage,
   RuntimeResponse,
   SetGlobalEnabledPayload,
@@ -112,12 +113,7 @@ class BackgroundService {
   }
 
   async createDefaultConfig() {
-    await this.configService.addConfig({
-      name: "Default",
-      enabled: true,
-      headers: [],
-      scope: { type: "all", value: "" },
-    });
+    await this.configService.ensureDefaultConfig();
   }
 
   async handleMessage(
@@ -131,12 +127,15 @@ class BackgroundService {
       const { action, data } = message;
 
       switch (action) {
-        case "getConfigs":
-          sendResponse({
-            success: true,
-            data: this.configService.getAllConfigs(),
-          });
+        case "getConfigs": {
+          await this.configService.ensureDefaultConfig();
+          const snapshot: PopupConfigsSnapshot = {
+            configs: this.configService.getAllConfigs().map((c) => c.toJSON()),
+            manualEffectiveId: await this.configService.resolveManualEffectiveId(),
+          };
+          sendResponse({ success: true, data: snapshot });
           break;
+        }
 
         case "addConfig": {
           const newConfig = await this.configService.addConfig(
@@ -171,10 +170,11 @@ class BackgroundService {
           const payload = data as SetGlobalEnabledPayload;
           await this.configService.setGlobalEnabled(!!payload.enabled);
           await this.updateActionState();
-          sendResponse({
-            success: true,
-            data: this.configService.getAllConfigs(),
-          });
+          const snapshot: PopupConfigsSnapshot = {
+            configs: this.configService.getAllConfigs().map((c) => c.toJSON()),
+            manualEffectiveId: await this.configService.resolveManualEffectiveId(),
+          };
+          sendResponse({ success: true, data: snapshot });
           break;
         }
 

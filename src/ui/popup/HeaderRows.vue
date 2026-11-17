@@ -58,6 +58,7 @@ import { computed, inject, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { isManualRuleScope } from "@/shared/utils/rules";
 import type { HeaderConfigData, HeaderItem } from "@/types";
+import type { PopupConfigsSnapshot } from "@/messaging/types";
 import { sendRuntimeMessage } from "./runtime";
 import { POPUP_CORE_KEY } from "./popupCore";
 
@@ -111,13 +112,22 @@ const pausedExplicit = computed(() => {
 const fieldsDisabled = computed(() => pausedExplicit.value);
 
 /**
- * 申请全站权限；在 Pause 下首次填写有效 header 且允许手动生效时用于自动 Resume。
+ * 确认已有全站访问权限。已在 manifest 中授权时不再 request，避免 Pause 下自动恢复被拒绝。
  */
 async function requestAllSitesPermission() {
-  if (!chrome.permissions?.request) return true;
-  return new Promise<boolean>((resolve) => {
-    chrome.permissions.request({ origins: ["*://*/*"] }, (ok) => resolve(!!ok));
-  });
+  const origins = ["*://*/*"];
+  try {
+    if (chrome.permissions?.contains) {
+      const granted = await chrome.permissions.contains({ origins });
+      if (granted) return true;
+    }
+    if (!chrome.permissions?.request) return true;
+    return await new Promise<boolean>((resolve) => {
+      chrome.permissions.request({ origins }, (ok) => resolve(!!ok));
+    });
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -144,11 +154,12 @@ async function persistActiveConfig() {
   if (!core.globallyEnabled.value && hasActive && manualMayApply) {
     const granted = await requestAllSitesPermission();
     if (granted) {
-      const en = await sendRuntimeMessage<HeaderConfigData[]>("setGlobalEnabled", {
+      const en = await sendRuntimeMessage<PopupConfigsSnapshot>("setGlobalEnabled", {
         enabled: true,
       });
-      if (en.success && Array.isArray(en.data)) {
-        core.configs.value = en.data;
+      if (en.success && en.data?.configs) {
+        core.configs.value = en.data.configs;
+        core.manualActiveId.value = en.data.manualEffectiveId ?? null;
         if (!core.configs.value.find((c) => c.id === core.activeId.value)) {
           core.activeId.value = core.configs.value[0]?.id ?? null;
         }

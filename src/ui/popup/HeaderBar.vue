@@ -65,7 +65,7 @@
 /** 顶栏：品牌、全局 Pause/Resume、打开设置 */
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
-import type { HeaderConfigData } from "@/types";
+import type { PopupConfigsSnapshot } from "@/messaging/types";
 import { sendRuntimeMessage } from "./runtime";
 import { POPUP_CORE_KEY } from "./popupCore";
 
@@ -73,18 +73,9 @@ const { t } = useI18n();
 const iconUrl = chrome.runtime.getURL("icons/icon32.png");
 const core = inject(POPUP_CORE_KEY)!;
 
-/**
- * 判断是否在任意规则下存在「已启用且名称非空」的 header。
- * 用于决定顶栏显示 Pause 还是 Resume（无有效 header 时仍显示 Resume）。
- */
-function hasAnyActiveHeaders() {
-  return core.configs.value.some((c) =>
-    (c.headers || []).some((h) => h.enabled !== false && (h.name || "").trim()),
-  );
-}
 
 /** true 时顶栏文案为 Pause，否则为 Resume */
-const uiEnabled = computed(() => core.globallyEnabled.value || !hasAnyActiveHeaders());
+const uiEnabled = computed(() => core.globallyEnabled.value);
 
 /**
  * 向用户申请 host_permissions 全站访问；无 permissions API 时直接视为已授权。
@@ -110,29 +101,23 @@ function openSettingDialog() {
  * 需 Resume 时先 requestAllSitesPermission；成功后修正 activeId 若当前规则被删。
  */
 async function toggleGlobal() {
-  const hasActive = hasAnyActiveHeaders();
-  const currentlyUiEnabled = core.globallyEnabled.value || !hasActive;
+  const currentlyUiEnabled = core.globallyEnabled.value;
   const desiredEnabled = !currentlyUiEnabled;
-  if (desiredEnabled === core.globallyEnabled.value && hasActive) return;
+  if (desiredEnabled === core.globallyEnabled.value) return;
 
   if (desiredEnabled) {
     const granted = await requestAllSitesPermission();
     if (!granted) return;
   }
 
-  const res = await sendRuntimeMessage<HeaderConfigData[]>("setGlobalEnabled", {
+  const res = await sendRuntimeMessage<PopupConfigsSnapshot>("setGlobalEnabled", {
     enabled: desiredEnabled,
   });
-  if (res.success) {
-    if (Array.isArray(res.data) && res.data.length) {
-      core.configs.value = res.data;
-      if (!core.configs.value.find((c) => c.id === core.activeId.value)) {
-        core.activeId.value = core.configs.value[0]?.id ?? null;
-      }
-    } else {
-      core.configs.value.forEach((c) => {
-        c.enabled = desiredEnabled;
-      });
+  if (res.success && res.data?.configs) {
+    core.configs.value = res.data.configs;
+    core.manualActiveId.value = res.data.manualEffectiveId ?? null;
+    if (!core.configs.value.find((c) => c.id === core.activeId.value)) {
+      core.activeId.value = core.configs.value[0]?.id ?? null;
     }
   }
 }

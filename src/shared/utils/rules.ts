@@ -91,6 +91,33 @@ export function nextDefaultRuleName(
   return used.has(fallback) ? `${fallback}_${n}` : fallback;
 }
 
+/**
+ * 选择 Header 编辑区应绑定的规则 id。
+ * 当前 id 仍在列表中则保持；否则优先当前页命中的自动规则，再已勾选手动规则，再任意手动或首条。
+ */
+export function pickEditingConfigId(input: {
+  configs: HeaderConfigData[];
+  activeId: string | null;
+  manualActiveId: string | null;
+  tabUrl: string;
+}): string | null {
+  const { configs, activeId, manualActiveId, tabUrl } = input;
+  if (activeId && configs.some((c) => c.id === activeId)) return activeId;
+  if (tabUrl) {
+    const matched = configs.find(
+      (c) => isAutoRuleScope(c.scope) && !!c.scope && isUrlMatchingScope(tabUrl, c.scope),
+    );
+    if (matched?.id) return matched.id;
+  }
+  if (
+    manualActiveId &&
+    configs.some((c) => c.id === manualActiveId && isManualRuleScope(c.scope))
+  ) {
+    return manualActiveId;
+  }
+  return configs.find((c) => isManualRuleScope(c.scope))?.id ?? configs[0]?.id ?? null;
+}
+
 // —— URL 与作用域匹配 ——
 export function patternVariants(pattern: string) {
   const p = (pattern || "").trim();

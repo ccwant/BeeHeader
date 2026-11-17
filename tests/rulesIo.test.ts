@@ -28,7 +28,7 @@ describe("rules import/export", () => {
   });
 
   it("rejects invalid alias", () => {
-    const { errors } = rulesImportPreview([{ name: "ab" }]);
+    const { errors } = rulesImportPreview([{ name: "a" }]);
     expect(errors.length).toBeGreaterThan(0);
     const err = errors[0];
     expect(err.key).toBe("import.ruleLine");

@@ -18,6 +18,7 @@ import {
   isUrlMatchingScope as matchUrlToScope,
 } from "@/shared/utils/rules";
 import { StorageService } from "@/shared/utils/storage";
+import { ValidationUtils } from "@/shared/utils/validation";
 
 /** DNR 侧一条待编译配置：无 tabIds = 动态规则（手动）；有 tabIds = 会话规则（自动） */
 export type EnabledConfigEntry = {
@@ -138,6 +139,35 @@ export class ConfigService {
   }
 
   /**
+   * 规则集为空时创建默认手动规则，并写入 manualEffectiveId 使其默认勾选。
+   * 安装与 Popup 拉配置时共用，避免两端各写一套空列表兜底。
+   */
+  async ensureDefaultConfig() {
+    if (this.configs.length > 0) return;
+    const config = await this.addConfig({
+      name: "Default",
+      enabled: true,
+      headers: [],
+      scope: { type: "all", value: "" },
+    });
+    await this.storage.set("manualEffectiveId", config.id);
+  }
+
+  /**
+   * 读取并校验手动生效 ID：必须指向已存在的手动规则，否则清除 storage 并返回 null。
+   */
+  async resolveManualEffectiveId(): Promise<string | null> {
+    const id = await this.readManualEffectiveId();
+    if (!id) return null;
+    const valid = this.configs.some(
+      (c) => c.id === id && isManualRuleScope(c.scope),
+    );
+    if (valid) return id;
+    await this.storage.remove("manualEffectiveId");
+    return null;
+  }
+
+  /**
    * 读取 Popup 勾选的手动规则 ID（`manualEffectiveId`）。
    * 未勾选或无效时返回 null —— 此时不应有任何手动规则参与 DNR。
    */
@@ -154,11 +184,22 @@ export class ConfigService {
   /**
    * 全局 Pause / Resume（Popup 顶部按钮）。
    *
-   * - Resume：所有**自动**规则 enabled=true；手动规则仅当 id===manualEffectiveId 时为 true。
+   * - Resume：自动规则 enabled=true；手动规则仅勾选中的那条为 true。没有勾选且没有自动规则时，勾选第一条手动规则，否则恢复后仍全部为 false。
    * - Pause：全部 enabled=false，并重建 DNR（清空规则）。
    */
   async setGlobalEnabled(enabled: boolean) {
-    const effectiveId = await this.readManualEffectiveId();
+    let effectiveId = await this.readManualEffectiveId();
+    const manualConfigs = this.configs.filter((c) =>
+      isManualRuleScope(c.scope),
+    );
+    const effectiveIsManual =
+      !!effectiveId && manualConfigs.some((c) => c.id === effectiveId);
+    const hasAuto = this.configs.some((c) => !isManualRuleScope(c.scope));
+    // 只有手动规则、且没有勾选记录时，恢复会把全部 enabled 留在 false，顶栏会一直停在「恢复」。
+    if (enabled && !effectiveIsManual && !hasAuto && manualConfigs[0]) {
+      effectiveId = manualConfigs[0].id;
+      await this.storage.set("manualEffectiveId", effectiveId);
+    }
 
     for (const config of this.configs) {
       if (isManualRuleScope(config.scope)) {
@@ -211,11 +252,25 @@ export class ConfigService {
     console.log("[BeeHeader]getEnabledConfigs tabs", tabs);
 
     // 过滤出 enabled 且符合 manualEffectiveId 的手动规则
-    const eligible = await this.collectEligibleConfigs();
+    const allConfigs = this.configs.filter((c) => {
+      if (!c.enabled) {
+        return false;
+      }
+      if (!c.headers) {
+        return false;
+      }
+      if (
+        !c.headers.some((h) => h.enabled !== false && (h.name || "").trim())
+      ) {
+        return false;
+      }
+      return true;
+    });
+
     const entries: EnabledConfigEntry[] = [];
 
-    console.log("[BeeHeader]getEnabledConfigs eligible", eligible);
-    for (const config of eligible) {
+    console.log("[BeeHeader]getEnabledConfigs allConfigs", allConfigs);
+    for (const config of allConfigs) {
       // 手动规则无 tabIds
       if (isManualRuleScope(config.scope)) {
         entries.push({ config });
@@ -237,22 +292,6 @@ export class ConfigService {
     }
     console.log("[BeeHeader]getEnabledConfigs entries", entries);
     return entries;
-  }
-
-  /**
-   * 扩展处于 Resume 且通过手动勾选校验的配置 + 已启用的自动规则。
-   */
-  private async collectEligibleConfigs(): Promise<Config[]> {
-    const effectiveId = await this.readManualEffectiveId();
-    const extensionRunning = this.configs.some((c) => c.enabled);
-
-    return this.configs.filter((config) => {
-      if (!config.enabled) return false;
-      if (isManualRuleScope(config.scope)) {
-        return extensionRunning && !!effectiveId && config.id === effectiveId;
-      }
-      return true;
-    });
   }
 
   /**
@@ -367,7 +406,9 @@ export class ConfigService {
     enabledConfigs.forEach((config) => {
       (config.headers || []).forEach((header, idx) => {
         if (!header || header.enabled === false) return;
-        if (!header.name || !header.name.trim()) return;
+        if (!ValidationUtils.isValidHeaderName(header.name || "")) return;
+        if (ValidationUtils.validateHeaderValue(header.value ?? "").length > 0)
+          return;
 
         const isResponse = header.type === "response";
 

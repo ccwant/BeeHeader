@@ -42,3 +42,9 @@ export interface ImportSharedKVPayload {
 export interface ImportConfigsPayload {
   configs: HeaderConfigData[];
 }
+
+/** Popup 打开时由 background 一次返回的规则集与已校验的手动生效 ID */
+export interface PopupConfigsSnapshot {
+  configs: HeaderConfigData[];
+  manualEffectiveId: string | null;
+}
