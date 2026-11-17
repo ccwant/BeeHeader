@@ -48,19 +48,16 @@
               <div class="bh-setting-row">
                 <dt>{{ t("settingDialog.language") }}</dt>
                 <dd class="bh-setting-lang">
-                  <label class="bh-lang-opt">
-                    <input
-                      v-model="localeChoice"
-                      type="radio"
-                      value="zh-CN"
-                      @change="onLocaleChange"
-                    />
-                    {{ t("settingDialog.langZh") }}
-                  </label>
-                  <label class="bh-lang-opt">
-                    <input v-model="localeChoice" type="radio" value="en" @change="onLocaleChange" />
-                    {{ t("settingDialog.langEn") }}
-                  </label>
+                  <select
+                    v-model="localeChoice"
+                    class="bh-setting-select"
+                    :aria-label="t('settingDialog.language')"
+                    @change="onLocaleChange"
+                  >
+                    <option v-for="opt in localeOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
                 </dd>
               </div>
             </dl>
@@ -123,6 +120,12 @@ const manifestVersion = chrome.runtime.getManifest().version;
 const activeSection = ref<SettingSection>("global");
 
 const localeChoice = ref<AppLocale>(locale.value as AppLocale);
+
+/** 语言下拉选项（切换 locale 后 label 会随 t() 更新） */
+const localeOptions = computed(() => [
+  { value: "zh-CN" as const, label: t("settingDialog.langZh") },
+  { value: "en" as const, label: t("settingDialog.langEn") },
+]);
 
 watch(
   () => locale.value,
@@ -304,18 +307,24 @@ const buildDateLabel = computed(() => {
   text-align: right;
 }
 .bh-setting-lang {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
   font-family: inherit;
 }
-.bh-lang-opt {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.bh-setting-select {
+  min-width: 132px;
+  height: 32px;
+  padding: 4px 28px 4px 10px;
+  border: 1px solid var(--bh-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--bh-fg);
+  background: var(--bh-bg);
   cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+}
+.bh-setting-select:focus {
+  border-color: var(--bh-brand);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
 }
 .bh-setting-footer {
   margin: 0;
