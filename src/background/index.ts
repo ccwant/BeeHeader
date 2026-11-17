@@ -65,7 +65,10 @@ class BackgroundService {
     chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
       if (changeInfo.url || changeInfo.status === "complete") {
         console.log("[BeeHeader]标签页更新", tab);
+        console.log("当前 URL:", tab.url);
+        this.configService.setCurrentTabId(_tabId);
         this.scheduleRuleRefresh();
+        if (tab?.url) void this.updateBadgeForTab(tab);
       }
     });
     // 监听标签页切换
