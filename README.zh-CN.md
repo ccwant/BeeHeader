@@ -34,7 +34,8 @@ src/
 
 - Popup 使用 [vue-i18n](https://vue-i18n.intlify.dev/)，默认跟随浏览器语言（中文环境为 `zh-CN`，否则 `en`）。
 - 在 **Setting → 全局 → 语言** 可手动切换；选择会写入 `chrome.storage.local`（键 `beeheader_locale`）。
-- 文案集中在 `src/i18n/locales/`；校验与导入错误使用 `validation.*` / `import.*` 键，在 UI 层翻译。
+- 文案集中在 `src/i18n/locales/`；构建时由 `@intlify/unplugin-vue-i18n` 预编译（兼容 MV3 CSP，不在运行时 `eval`）。
+- 校验与导入错误使用 `validation.*` / `import.*` 键，在 UI 层翻译。
 
 ## License
 

@@ -34,7 +34,8 @@ src/
 
 - Popup uses [vue-i18n](https://vue-i18n.intlify.dev/); default locale follows the browser (`zh-CN` for Chinese, otherwise `en`).
 - Switch manually under **Setting → Global → Language**; choice is stored in `chrome.storage.local` (`beeheader_locale`).
-- Copy lives in `src/i18n/locales/`; validation and import errors use `validation.*` / `import.*` keys translated in the UI.
+- Copy lives in `src/i18n/locales/`; `@intlify/unplugin-vue-i18n` pre-compiles messages at build time (MV3 CSP, no runtime `eval`).
+- Validation and import errors use `validation.*` / `import.*` keys translated in the UI.
 
 ## License
 

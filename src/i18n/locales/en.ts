@@ -35,7 +35,7 @@ export default {
     save: "Save",
     aliasLabel: "Alias",
     required: "*",
-    aliasPlaceholder: "At least 3 characters",
+    aliasPlaceholder: "At least 2 characters",
     urlLabel: "URL pattern (optional)",
     urlPlaceholder: "URL regex",
     defaultRuleName: "Rule {n}",
@@ -91,4 +91,4 @@ export default {
     fileEmpty: "No importable rules in file",
     ruleLine: "Rule #{index}: {reason}",
   },
-} as const;
+};

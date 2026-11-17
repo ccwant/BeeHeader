@@ -35,7 +35,7 @@ export default {
     save: "保存",
     aliasLabel: "别名",
     required: "*",
-    aliasPlaceholder: "至少 3 个字符",
+    aliasPlaceholder: "至少 2 个字符",
     urlLabel: "URL 规则（可选）",
     urlPlaceholder: "网址匹配正则",
     defaultRuleName: "新规则{n}",
@@ -91,4 +91,4 @@ export default {
     fileEmpty: "文件中没有可导入的规则",
     ruleLine: "规则 #{index}：{reason}",
   },
-} as const;
+};

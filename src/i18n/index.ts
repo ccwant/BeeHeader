@@ -52,7 +52,7 @@ export async function setAppLocale(
 }
 
 /**
- * 创建 Popup 用 vue-i18n 实例（runtime 构建 + 静态 messages，兼容 MV3 script-src 'self'）。
+ * 创建 Popup 用 vue-i18n 实例（unplugin 预编译 AST 消息 + JIT 解析，无 runtime eval）。
  */
 export function createBeeI18n(initialLocale: AppLocale = "en") {
   return createI18n({

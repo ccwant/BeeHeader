@@ -70,15 +70,25 @@ export type RulesImportError =
 
 /**
  * 生成不重复的默认规则名；`format` 由 UI i18n 提供（如「新规则{n}」）。
+ * 若 format 与 n 无关则设上限，避免死循环。
  */
 export function nextDefaultRuleName(
   configs: HeaderConfigData[],
   format: (n: number) => string,
 ): string {
   const used = new Set(configs.map((c) => (c.name || "").trim()));
-  let n = configs.length + 1;
-  while (used.has(format(n))) n += 1;
-  return format(n);
+  let n = Math.max(1, configs.length);
+  const maxTries = 10_000;
+  let last = "";
+  for (let i = 0; i < maxTries; i++) {
+    n += 1;
+    const name = format(n);
+    if (!used.has(name)) return name;
+    if (name === last) continue;
+    last = name;
+  }
+  const fallback = `rule_${Date.now()}`;
+  return used.has(fallback) ? `${fallback}_${n}` : fallback;
 }
 
 // —— URL 与作用域匹配 ——

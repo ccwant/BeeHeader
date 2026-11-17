@@ -21,7 +21,7 @@ export class ValidationUtils {
   static validateRuleAlias(alias: string): ValidationMessageKey | null {
     const t = alias.trim();
     if (!t) return "validation.aliasEmpty";
-    if (t.length <= 2) return "validation.aliasTooShort";
+    if (t.length < 2) return "validation.aliasTooShort";
     return null;
   }
 
