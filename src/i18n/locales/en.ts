@@ -7,7 +7,7 @@ export default {
   },
   rulesBlock: {
     autoTitle: "Auto rules",
-    autoHint: "Matched by URL regex",
+    autoHint: "Check to apply; Matched by URL regex",
     manualTitle: "Manual rules",
     manualHint: "Check to apply; click name to edit headers",
     empty: "None",

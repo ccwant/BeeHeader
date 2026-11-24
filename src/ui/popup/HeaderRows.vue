@@ -15,6 +15,7 @@
         :placeholder="t('headerRows.namePlaceholder')"
         :disabled="fieldsDisabled"
         @input="onHeaderFieldChange"
+         @blur="onHeaderFieldBlur"
         @keydown="focusNextValue"
       />
       <input
@@ -23,6 +24,7 @@
         :placeholder="t('headerRows.valuePlaceholder')"
         :disabled="fieldsDisabled"
         @input="onHeaderFieldChange"
+        @blur="onHeaderFieldBlur"
         @keydown="addRowOnEnter"
       />
       <button
@@ -56,7 +58,6 @@
 /** 当前选中规则的请求头表格与防抖持久化 */
 import { computed, inject, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { isManualRuleScope } from "@/shared/utils/rules";
 import type { HeaderConfigData, HeaderItem } from "@/types";
 import type { PopupConfigsSnapshot } from "@/messaging/types";
 import { sendRuntimeMessage } from "./runtime";
@@ -146,12 +147,10 @@ async function persistActiveConfig() {
   const config = core.activeConfig.value;
   if (!config?.id) return;
 
-  const isManual = isManualRuleScope(config.scope);
-  const manualMayApply = !isManual || core.manualActiveId.value === config.id;
   const hasActive = hasActiveHeadersInConfig(config);
   const payload = { headers: config.headers || [] };
 
-  if (!core.globallyEnabled.value && hasActive && manualMayApply) {
+  if (!core.globallyEnabled.value && hasActive ) {
     const granted = await requestAllSitesPermission();
     if (granted) {
       const en = await sendRuntimeMessage<PopupConfigsSnapshot>("setGlobalEnabled", {
@@ -159,7 +158,6 @@ async function persistActiveConfig() {
       });
       if (en.success && en.data?.configs) {
         core.configs.value = en.data.configs;
-        core.manualActiveId.value = en.data.manualEffectiveId ?? null;
         if (!core.configs.value.find((c) => c.id === core.activeId.value)) {
           core.activeId.value = core.configs.value[0]?.id ?? null;
         }
@@ -184,8 +182,7 @@ function addHeaderRow() {
   const config = core.activeConfig.value;
   if (!config) return;
   if (!config.headers) config.headers = [];
-  config.headers.push({ name: "Name", value: "", type: "request", enabled: true });
-  scheduleSave();
+  config.headers.push({ name: "", value: "", type: "request", enabled: false });
 }
 
 /**
@@ -202,6 +199,10 @@ function removeHeaderRow(index: number) {
  * 任意 header 字段变更时的统一入口，转调 scheduleSave。
  */
 function onHeaderFieldChange() {
+ 
+}
+
+function onHeaderFieldBlur() {
   scheduleSave();
 }
 

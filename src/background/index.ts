@@ -57,9 +57,6 @@ class BackgroundService {
       if (changes.configs) {
         console.log("[BeeHeader]配置变化", changes);
         void this.handleConfigsChanged();
-      } else if (changes.manualEffectiveId) {
-        console.log("[BeeHeader]配置变化 手动", changes);
-        void this.handleConfigsChanged();
       }
     });
     // 监听标签页更新
@@ -131,7 +128,6 @@ class BackgroundService {
           await this.configService.ensureDefaultConfig();
           const snapshot: PopupConfigsSnapshot = {
             configs: this.configService.getAllConfigs().map((c) => c.toJSON()),
-            manualEffectiveId: await this.configService.resolveManualEffectiveId(),
           };
           sendResponse({ success: true, data: snapshot });
           break;
@@ -172,7 +168,6 @@ class BackgroundService {
           await this.updateActionState();
           const snapshot: PopupConfigsSnapshot = {
             configs: this.configService.getAllConfigs().map((c) => c.toJSON()),
-            manualEffectiveId: await this.configService.resolveManualEffectiveId(),
           };
           sendResponse({ success: true, data: snapshot });
           break;

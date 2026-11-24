@@ -18,7 +18,6 @@ describe("pickEditingConfigId", () => {
       pickEditingConfigId({
         configs,
         activeId: "a1",
-        manualActiveId: "m1",
         tabUrl: "https://other.test",
       }),
     ).toBe("a1");
@@ -30,7 +29,6 @@ describe("pickEditingConfigId", () => {
       pickEditingConfigId({
         configs,
         activeId: "gone",
-        manualActiveId: "m1",
         tabUrl: "https://example.com/path",
       }),
     ).toBe("a1");

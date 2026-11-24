@@ -112,7 +112,6 @@ import {
   getPatternLabel,
   getRuleAlias,
   getTabLabel,
-  isManualRuleScope,
   nextDefaultRuleName,
   parseRulesImportJson,
   patternToScope,
@@ -238,7 +237,7 @@ async function addRule() {
 }
 
 /**
- * 校验别名后 updateConfig 更新 name/scope；手动变自动时清理 manualEffectiveId。
+ * 校验别名后 updateConfig 更新 name/scope。
  */
 async function saveRule() {
   const aliasErr = ValidationUtils.validateRuleAlias(alias.value);
@@ -260,17 +259,6 @@ async function saveRule() {
     const idx = core.configs.value.findIndex((c) => c.id === id);
     if (idx >= 0) {
       core.configs.value[idx] = { ...core.configs.value[idx], ...res.data };
-    }
-    if (isManualRuleScope(scope)) {
-      if (core.manualActiveId.value === id) core.manualActiveId.value = id;
-    } else if (core.manualActiveId.value === id) {
-      core.manualActiveId.value = null;
-      await chrome.storage.local.remove("manualEffectiveId");
-      try {
-        await sendRuntimeMessage("refreshRules");
-      } catch {
-        // ignore
-      }
     }
     core.syncActiveEditingId();
     loadForm();
@@ -373,15 +361,6 @@ async function deleteRule() {
   }
   if (core.activeId.value === id) {
     core.activeId.value = core.configs.value[0]?.id ?? null;
-  }
-  if (core.manualActiveId.value === id) {
-    core.manualActiveId.value = null;
-    await chrome.storage.local.remove("manualEffectiveId");
-    try {
-      await sendRuntimeMessage("refreshRules");
-    } catch {
-      // ignore
-    }
   }
   selectedId.value = core.configs.value[0]?.id ?? null;
   loadForm();

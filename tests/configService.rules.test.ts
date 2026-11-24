@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Config } from "@/shared/models/Config";
 import { ConfigService, RESOURCE_TYPES } from "@/shared/services/ConfigService";
 
@@ -54,7 +54,7 @@ describe("ConfigService buildDnrRules", () => {
     expect(rules[0].condition?.tabIds).toEqual([42]);
   });
 
-  it("collectEligibleConfigs excludes manual when id not effective", async () => {
+  it("getEnabledConfigs includes enabled rules with headers and skips disabled ones", async () => {
     const svc = new ConfigService();
     const manualA = new Config({
       id: "manual_a",
@@ -66,20 +66,13 @@ describe("ConfigService buildDnrRules", () => {
       id: "manual_b",
       enabled: false,
       scope: { type: "all", value: "" },
-      headers: [],
+      headers: [{ name: "Y", value: "2", type: "request", enabled: true }],
     });
     (svc as unknown as { configs: Config[] }).configs = [manualA, manualB];
-    const storage = (svc as unknown as { storage: { get: (k: string) => Promise<string | null> } })
-      .storage;
-    const getSpy = vi.spyOn(storage, "get").mockResolvedValue("manual_b");
 
     const entries = await svc.getEnabledConfigs({ tabs: [] });
-    expect(entries).toHaveLength(0);
-
-    getSpy.mockResolvedValue("manual_a");
-    const entriesA = await svc.getEnabledConfigs({ tabs: [] });
-    expect(entriesA).toHaveLength(1);
-    expect(entriesA[0].config.id).toBe("manual_a");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].config.id).toBe("manual_a");
   });
 
   it("RESOURCE_TYPES covers xhr and main_frame", () => {

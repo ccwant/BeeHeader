@@ -7,7 +7,7 @@ export default {
   },
   rulesBlock: {
     autoTitle: "自动规则",
-    autoHint: "根据 URL 正则自动匹配",
+    autoHint: "勾选后生效；根据 URL 正则自动匹配",
     manualTitle: "手动规则",
     manualHint: "勾选后生效；点击名称编辑该规则的请求头",
     empty: "暂无",

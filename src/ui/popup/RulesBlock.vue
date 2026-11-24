@@ -1,5 +1,6 @@
 <template>
   <div class="bh-rules-block">
+    <!-- header -->
     <div class="bh-rules-heading">
       <div class="bh-rules-heading-main">
         <span class="bh-rules-text">{{ heading.title }}</span>
@@ -55,10 +56,10 @@
         <input
           type="checkbox"
           class="bh-tab-check"
-          :checked="isAutoTabMatched(c)"
-          disabled
+          :checked="!!c.enabled"
           :aria-label="t('rulesBlock.autoMatchAria')"
           @click.stop
+          @change="c.id && setRuleEnabled(c.id, ($event.target as HTMLInputElement).checked)"
         />
         <span class="bh-tab-label">{{ getTabLabel(c) }}</span>
       </button>
@@ -78,18 +79,18 @@
         :class="{
           'bh-tab--alias': getRuleAlias(c),
           'bh-tab--editing': isEditingConfig(c),
-          'bh-tab--matched': isManualEffective(c),
+          'bh-tab--matched': !!c.enabled,
         }"
         role="tab"
-        :aria-selected="isManualEffective(c)"
+        :aria-selected="!!c.enabled"
       >
         <input
           type="checkbox"
           class="bh-tab-check"
-          :checked="isManualEffective(c)"
+          :checked="!!c.enabled"
           :aria-label="t('rulesBlock.manualEnableAria')"
           @click.stop
-          @change="c.id && setManualEffective(c.id, ($event.target as HTMLInputElement).checked)"
+          @change="c.id && setRuleEnabled(c.id, ($event.target as HTMLInputElement).checked)"
         />
         <button
           type="button"
@@ -119,6 +120,7 @@ import {
 } from "@/shared/utils/rules";
 import type { HeaderConfigData } from "@/types";
 import { POPUP_CORE_KEY } from "./popupCore";
+import { sendRuntimeMessage } from "./runtime";
 
 const props = defineProps<{
   variant: "auto" | "manual";
@@ -183,28 +185,28 @@ function isEditingConfig(config: HeaderConfigData) {
 }
 
 /**
- * 手动规则 checkbox 是否点亮（与 manualEffectiveId 一致，决定 DNR 手动注入）。
+ * 勾选或取消规则：把该条 config.enabled 写成勾选状态并交给 background 持久化、刷新 DNR。
+ * 失败时把本地勾选状态改回去。
  */
-function isManualEffective(config: HeaderConfigData) {
-  return !!config.id && core.manualActiveId.value === config.id;
-}
-
-/**
- * 用户勾选/取消手动规则：更新 manualActiveId 并写入 chrome.storage.local。
- * background 监听 manualEffectiveId 变化后刷新 DNR；非手动规则直接 return。
- */
-async function setManualEffective(id: string, checked: boolean) {
+async function setRuleEnabled(id: string, enabled: boolean) {
   const config = core.configs.value.find((c) => c.id === id);
-  if (!config || !isManualRuleScope(config.scope)) return;
-
-  if (checked) core.manualActiveId.value = id;
-  else if (core.manualActiveId.value === id) core.manualActiveId.value = null;
-  else return;
-
-  if (core.manualActiveId.value) {
-    await chrome.storage.local.set({ manualEffectiveId: core.manualActiveId.value });
-  } else {
-    await chrome.storage.local.remove("manualEffectiveId");
+  if (!config) return;
+  const previous = !!config.enabled;
+  config.enabled = enabled;
+  const res = await sendRuntimeMessage<HeaderConfigData>("toggleConfig", {
+    id,
+    enabled,
+  });
+  console.log('toggleConfig', res);
+  if (!res.success) {
+    config.enabled = previous;
+    return;
+  }
+  if (res.data) {
+    const idx = core.configs.value.findIndex((c) => c.id === id);
+    if (idx >= 0) {
+      core.configs.value[idx] = { ...core.configs.value[idx], ...res.data };
+    }
   }
 }
 </script>

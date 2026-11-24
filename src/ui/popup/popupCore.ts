@@ -8,7 +8,6 @@ import { sendRuntimeMessage } from "./runtime";
 export interface PopupCoreContext {
   configs: Ref<HeaderConfigData[]>;
   activeId: Ref<string | null>;
-  manualActiveId: Ref<string | null>;
   currentTabUrl: Ref<string>;
   settingOpen: Ref<boolean>;
   rulesOpen: Ref<boolean>;
@@ -22,13 +21,12 @@ export const POPUP_CORE_KEY: InjectionKey<PopupCoreContext> = Symbol("popupCore"
 export type PopupCore = PopupCoreContext & { initPopup: () => Promise<void> };
 
 /**
- * 创建 Popup 界面状态。规则持久化、默认规则与 manualEffectiveId 校验在 ConfigService；
+ * 创建 Popup 界面状态。规则是否生效由各条 config.enabled 表示；
  * 此处只拉快照、记当前标签 URL，并维护正在编辑的规则 id。
  */
 export function createPopupCore(): PopupCore {
   const configs = ref<HeaderConfigData[]>([]);
   const activeId = ref<string | null>(null);
-  const manualActiveId = ref<string | null>(null);
   const currentTabUrl = ref("");
   const settingOpen = ref(false);
   const rulesOpen = ref(false);
@@ -43,20 +41,19 @@ export function createPopupCore(): PopupCore {
   const globallyEnabled = computed(() => configs.value.some((c) => !!c.enabled));
 
   /**
-   * 按当前列表、手动勾选和标签 URL 纠正 activeId。
+   * 按当前列表和标签 URL 纠正 activeId。
    * 规则增删或 headers 变更后由 watch 调用。
    */
   function syncActiveEditingId() {
     activeId.value = pickEditingConfigId({
       configs: configs.value,
       activeId: activeId.value,
-      manualActiveId: manualActiveId.value,
       tabUrl: currentTabUrl.value,
     });
   }
 
   /**
-   * 向 background 拉取规则快照（含已校验的手动生效 ID），失败时短暂重试。
+   * 向 background 拉取规则快照，失败时短暂重试。
    */
   async function loadSnapshot() {
     for (let i = 0; i < 3; i++) {
@@ -64,7 +61,6 @@ export function createPopupCore(): PopupCore {
         const res = await sendRuntimeMessage<PopupConfigsSnapshot>("getConfigs");
         if (res.success && res.data) {
           configs.value = res.data.configs || [];
-          manualActiveId.value = res.data.manualEffectiveId ?? null;
           return;
         }
       } catch {
@@ -105,7 +101,6 @@ export function createPopupCore(): PopupCore {
   return {
     configs,
     activeId,
-    manualActiveId,
     currentTabUrl,
     settingOpen,
     rulesOpen,

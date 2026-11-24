@@ -2,7 +2,7 @@
  * ConfigService — 配置持久化 + Declarative Net Request (DNR) 规则同步。
  *
  * 职责概览：
- * 1. 读写 chrome.storage 中的规则集（`configs`）与手动生效 ID（`manualEffectiveId`）。
+ * 1. 读写 chrome.storage 中的规则集（`configs`）。每条规则的 `enabled` 表示是否参与注入。
  * 2. 将已启用的 header 配置编译为 MV3 DNR 的 `modifyHeaders` 规则。
  * 3. 区分手动规则（无 URL / 全匹配）与自动规则（带 URL 作用域），分别使用
  *    动态规则（dynamic）与会话规则（session + tabIds）。
@@ -51,7 +51,7 @@ export class ConfigService {
 
   private currentTabId: number = -1;
 
-  /** 启动时从 storage 加载规则集 */
+  /** 启动时从 storage 加载规则集，并清掉已废弃的 manualEffectiveId */
   async init() {
     await this.loadConfigs();
   }
@@ -131,85 +131,45 @@ export class ConfigService {
   }
 
   /**
-   * 切换单条配置的 enabled（实际走全局 Pause/Resume 语义）。
+   * 只改一条规则的 enabled，并重建 DNR。勾选框走这条，不改其它规则。
    */
   async toggleConfig(id: string, enabled: boolean) {
-    await this.setGlobalEnabled(enabled);
-    return this.getConfigById(id);
+    const updated = await this.updateConfig(id, { enabled });
+    await this.updateNetworkRules();
+    return updated;
   }
 
   /**
-   * 规则集为空时创建默认手动规则，并写入 manualEffectiveId 使其默认勾选。
-   * 安装与 Popup 拉配置时共用，避免两端各写一套空列表兜底。
+   * 规则集为空时创建一条默认启用的手动规则。
+   * 安装与 Popup 拉配置时共用。
    */
   async ensureDefaultConfig() {
     if (this.configs.length > 0) return;
-    const config = await this.addConfig({
+    await this.addConfig({
       name: "Default",
       enabled: true,
       headers: [],
       scope: { type: "all", value: "" },
     });
-    await this.storage.set("manualEffectiveId", config.id);
   }
 
+  lastGlobalEnabled: Record<string, boolean> = {};
   /**
-   * 读取并校验手动生效 ID：必须指向已存在的手动规则，否则清除 storage 并返回 null。
-   */
-  async resolveManualEffectiveId(): Promise<string | null> {
-    const id = await this.readManualEffectiveId();
-    if (!id) return null;
-    const valid = this.configs.some(
-      (c) => c.id === id && isManualRuleScope(c.scope),
-    );
-    if (valid) return id;
-    await this.storage.remove("manualEffectiveId");
-    return null;
-  }
-
-  /**
-   * 读取 Popup 勾选的手动规则 ID（`manualEffectiveId`）。
-   * 未勾选或无效时返回 null —— 此时不应有任何手动规则参与 DNR。
-   */
-  private async readManualEffectiveId(): Promise<string | null> {
-    const manualEffectiveId = await this.storage.get<string | null>(
-      "manualEffectiveId",
-    );
-    if (typeof manualEffectiveId === "string" && manualEffectiveId.trim()) {
-      return manualEffectiveId.trim();
-    }
-    return null;
-  }
-
-  /**
-   * 全局 Pause / Resume（Popup 顶部按钮）。
-   *
-   * - Resume：自动规则 enabled=true；手动规则仅勾选中的那条为 true。没有勾选且没有自动规则时，勾选第一条手动规则，否则恢复后仍全部为 false。
-   * - Pause：全部 enabled=false，并重建 DNR（清空规则）。
+   * 全局 Pause / Resume：把每条规则的 enabled 设成同一值后重建 DNR。
+   * 单条勾选不走这里。
    */
   async setGlobalEnabled(enabled: boolean) {
-    let effectiveId = await this.readManualEffectiveId();
-    const manualConfigs = this.configs.filter((c) =>
-      isManualRuleScope(c.scope),
-    );
-    const effectiveIsManual =
-      !!effectiveId && manualConfigs.some((c) => c.id === effectiveId);
-    const hasAuto = this.configs.some((c) => !isManualRuleScope(c.scope));
-    // 只有手动规则、且没有勾选记录时，恢复会把全部 enabled 留在 false，顶栏会一直停在「恢复」。
-    if (enabled && !effectiveIsManual && !hasAuto && manualConfigs[0]) {
-      effectiveId = manualConfigs[0].id;
-      await this.storage.set("manualEffectiveId", effectiveId);
-    }
-
-    for (const config of this.configs) {
-      if (isManualRuleScope(config.scope)) {
-        config.setEnabled(
-          enabled && !!effectiveId && config.id === effectiveId,
-        );
-      } else {
-        config.setEnabled(enabled);
+    if (enabled) {
+      for (const config of this.configs) {
+        config.setEnabled(this.lastGlobalEnabled[config.id] ?? false);
+      }
+    } else {
+      for (const config of this.configs) {
+        this.lastGlobalEnabled[config.id] = config.enabled;
+        config.setEnabled(false);
       }
     }
+    
     await this.saveConfigs();
     await this.updateNetworkRules();
   }
@@ -251,7 +211,7 @@ export class ConfigService {
     let tabs = await this.getTabs(options?.tabs);
     console.log("[BeeHeader]getEnabledConfigs tabs", tabs);
 
-    // 过滤出 enabled 且符合 manualEffectiveId 的手动规则
+    // 只保留 enabled 且至少有一条有效 header 的规则
     const allConfigs = this.configs.filter((c) => {
       if (!c.enabled) {
         return false;
@@ -269,7 +229,7 @@ export class ConfigService {
 
     const entries: EnabledConfigEntry[] = [];
 
-    console.log("[BeeHeader]getEnabledConfigs allConfigs", allConfigs);
+    console.log("[BeeHeader]getEnabledConfigs allEnabledConfigs", allConfigs);
     for (const config of allConfigs) {
       // 手动规则无 tabIds
       if (isManualRuleScope(config.scope)) {

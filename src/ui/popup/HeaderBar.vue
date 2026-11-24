@@ -115,7 +115,6 @@ async function toggleGlobal() {
   });
   if (res.success && res.data?.configs) {
     core.configs.value = res.data.configs;
-    core.manualActiveId.value = res.data.manualEffectiveId ?? null;
     if (!core.configs.value.find((c) => c.id === core.activeId.value)) {
       core.activeId.value = core.configs.value[0]?.id ?? null;
     }
